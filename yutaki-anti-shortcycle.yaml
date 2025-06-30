@@ -22,9 +22,7 @@ blueprint:
       description: "Durée pendant laquelle la PAC doit rester éteinte avant de pouvoir redémarrer"
       default: 00:20:00
       selector:
-        duration:
-          min: 00:01:00
-          max: 01:00:00
+        duration: {}
 
 mode: restart
 
