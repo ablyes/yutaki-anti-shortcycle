@@ -1,10 +1,10 @@
 blueprint:
   name: Gestion PAC Yutaki (été/hiver, anti-cycles courts)
   description: >
-    Intelligent automation blueprint to control a Hitachi Yutaki heat pump via relay (terminals 13/14)
-    and prevent short cycling. Supports both summer (cooling) and winter (heating) modes using a
-    configurable input_select entity. Automatically starts and stops the PAC based on return/ambient
-    temperature and runtime thresholds.
+    Automatise le pilotage d'une pompe à chaleur Hitachi Yutaki via un relais (bornes 13/14),
+    afin de limiter les cycles courts. Fonctionne en été (mode Refroidissement) ou en hiver
+    (mode Chauffage) en s'appuyant sur une entité `select` configurée par l'utilisateur.
+    Démarre ou arrête la PAC selon les températures de retour/ambiance et une durée de marche maximale.
   domain: automation
   input:
     temp_sensor:
@@ -21,18 +21,18 @@ blueprint:
           domain: switch
     mode_select:
       name: Sélecteur de mode
-      description: input_select indiquant le mode actuel (froid ou chaud)
+      description: Entité de type `select` indiquant le mode actuel (Refroidissement ou Chauffage)
       selector:
         entity:
-          domain: input_select
+          domain: select
     cold_mode_value:
-      name: Valeur indiquant le mode froid
-      default: "froid"
+      name: Valeur indiquant le mode Refroidissement
+      default: "Refroidissement"
       selector:
         text: {}
     hot_mode_value:
-      name: Valeur indiquant le mode chaud
-      default: "chaud"
+      name: Valeur indiquant le mode Chauffage
+      default: "Chauffage"
       selector:
         text: {}
     max_runtime:
@@ -41,7 +41,7 @@ blueprint:
       selector:
         duration: {}
     restart_threshold_cold:
-      name: T° haute pour démarrer (mode froid)
+      name: T° haute pour démarrer (mode Refroidissement)
       default: 21
       selector:
         number:
@@ -49,7 +49,7 @@ blueprint:
           max: 30
           unit_of_measurement: "°C"
     stop_threshold_cold:
-      name: T° basse pour arrêt (mode froid)
+      name: T° basse pour arrêt (mode Refroidissement)
       default: 18
       selector:
         number:
@@ -57,7 +57,7 @@ blueprint:
           max: 25
           unit_of_measurement: "°C"
     restart_threshold_hot:
-      name: T° basse pour démarrer (mode chaud)
+      name: T° basse pour démarrer (mode Chauffage)
       default: 35
       selector:
         number:
@@ -65,7 +65,7 @@ blueprint:
           max: 60
           unit_of_measurement: "°C"
     stop_threshold_hot:
-      name: T° haute pour arrêt (mode chaud)
+      name: T° haute pour arrêt (mode Chauffage)
       default: 45
       selector:
         number:
