@@ -1,0 +1,139 @@
+blueprint:
+  name: Gestion PAC Yutaki (été/hiver, anti-cycles courts)
+  description: >
+    Intelligent automation blueprint to control a Hitachi Yutaki heat pump via relay (terminals 13/14)
+    and prevent short cycling. Supports both summer (cooling) and winter (heating) modes using a
+    configurable input_select entity. Automatically starts and stops the PAC based on return/ambient
+    temperature and runtime thresholds.
+  domain: automation
+  input:
+    temp_sensor:
+      name: Capteur de température
+      description: Capteur utilisé pour mesurer la température retour ou ambiante
+      selector:
+        entity:
+          domain: sensor
+    pac_switch:
+      name: Interrupteur PAC
+      description: Relais connecté aux bornes 13/14 (contact sec)
+      selector:
+        entity:
+          domain: switch
+    mode_select:
+      name: Sélecteur de mode
+      description: input_select indiquant le mode actuel (froid ou chaud)
+      selector:
+        entity:
+          domain: input_select
+    cold_mode_value:
+      name: Valeur indiquant le mode froid
+      default: "froid"
+      selector:
+        text: {}
+    hot_mode_value:
+      name: Valeur indiquant le mode chaud
+      default: "chaud"
+      selector:
+        text: {}
+    max_runtime:
+      name: Durée maximale de marche
+      default: 00:20:00
+      selector:
+        duration: {}
+    restart_threshold_cold:
+      name: T° haute pour démarrer (mode froid)
+      default: 21
+      selector:
+        number:
+          min: 10
+          max: 30
+          unit_of_measurement: "°C"
+    stop_threshold_cold:
+      name: T° basse pour arrêt (mode froid)
+      default: 18
+      selector:
+        number:
+          min: 5
+          max: 25
+          unit_of_measurement: "°C"
+    restart_threshold_hot:
+      name: T° basse pour démarrer (mode chaud)
+      default: 35
+      selector:
+        number:
+          min: 20
+          max: 60
+          unit_of_measurement: "°C"
+    stop_threshold_hot:
+      name: T° haute pour arrêt (mode chaud)
+      default: 45
+      selector:
+        number:
+          min: 25
+          max: 70
+          unit_of_measurement: "°C"
+
+mode: restart
+
+variables:
+  temp: "{{ states(input.temp_sensor) | float(0) }}"
+  mode: "{{ states(input.mode_select) }}"
+  is_cold: "{{ mode == input.cold_mode_value }}"
+  is_hot: "{{ mode == input.hot_mode_value }}"
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input temp_sensor
+    id: start
+  - platform: numeric_state
+    entity_id: !input temp_sensor
+    id: stop
+  - platform: state
+    entity_id: !input pac_switch
+    to: 'on'
+    for: !input max_runtime
+    id: timeout
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_cold and temp > (input.restart_threshold_cold | float) }}
+          - condition: trigger
+            id: start
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input pac_switch
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_cold and (temp < (input.stop_threshold_cold | float) or trigger.id == 'timeout') }}
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input pac_switch
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_hot and temp < (input.restart_threshold_hot | float) }}
+          - condition: trigger
+            id: start
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input pac_switch
+
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ is_hot and (temp > (input.stop_threshold_hot | float) or trigger.id == 'timeout') }}
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input pac_switch
