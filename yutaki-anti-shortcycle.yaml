@@ -1,138 +1,90 @@
 blueprint:
-  name: Gestion PAC Yutaki (été/hiver, anti-cycles courts)
+  name: Gestion PAC Yutaki (anti-cycles courts par temporisation)
   description: >
     Automatise le pilotage d'une pompe à chaleur Hitachi Yutaki via un relais (bornes 13/14),
-    afin de limiter les cycles courts. Fonctionne en été (mode Refroidissement) ou en hiver
-    (mode Chauffage) en s'appuyant sur une entité `select` configurée par l'utilisateur.
-    Démarre ou arrête la PAC selon les températures de retour/ambiance et une durée de marche maximale.
+    afin d'éviter les cycles courts. Lorsque la PAC est arrêtée, elle ne peut redémarrer qu'après
+    une temporisation paramétrable.
   domain: automation
   input:
-    temp_sensor:
-      name: Capteur de température
-      description: Capteur utilisé pour mesurer la température retour ou ambiante
-      selector:
-        entity:
-          domain: sensor
     pac_switch:
       name: Interrupteur PAC
       description: Relais connecté aux bornes 13/14 (contact sec)
       selector:
         entity:
           domain: switch
-    mode_select:
-      name: Sélecteur de mode
-      description: Entité de type `select` indiquant le mode actuel (Refroidissement ou Chauffage)
+    start_trigger:
+      name: Déclencheur de mise en marche
+      description: Entité qui déclenche la demande de marche (ex: température ou booléen)
       selector:
-        entity:
-          domain: select
-    cold_mode_value:
-      name: Valeur indiquant le mode Refroidissement
-      default: "Refroidissement"
-      selector:
-        text: {}
-    hot_mode_value:
-      name: Valeur indiquant le mode Chauffage
-      default: "Chauffage"
-      selector:
-        text: {}
-    max_runtime:
-      name: Durée maximale de marche
+        entity: {}
+    min_off_duration:
+      name: Durée minimale d'arrêt
+      description: Durée pendant laquelle la PAC doit rester éteinte avant de pouvoir redémarrer
       default: 00:20:00
       selector:
-        duration: {}
-    restart_threshold_cold:
-      name: T° haute pour démarrer (mode Refroidissement)
-      default: 21
-      selector:
-        number:
-          min: 10
-          max: 30
-          unit_of_measurement: "°C"
-    stop_threshold_cold:
-      name: T° basse pour arrêt (mode Refroidissement)
-      default: 18
-      selector:
-        number:
-          min: 5
-          max: 25
-          unit_of_measurement: "°C"
-    restart_threshold_hot:
-      name: T° basse pour démarrer (mode Chauffage)
-      default: 35
-      selector:
-        number:
-          min: 20
-          max: 60
-          unit_of_measurement: "°C"
-    stop_threshold_hot:
-      name: T° haute pour arrêt (mode Chauffage)
-      default: 45
-      selector:
-        number:
-          min: 25
-          max: 70
-          unit_of_measurement: "°C"
+        duration:
+          min: 00:01:00
+          max: 01:00:00
 
 mode: restart
 
 variables:
-  temp: "{{ states(input.temp_sensor) | float(0) }}"
-  mode: "{{ states(input.mode_select) }}"
-  is_cold: "{{ mode == input.cold_mode_value }}"
-  is_hot: "{{ mode == input.hot_mode_value }}"
+  last_off: >
+    {% set history = state_attr(input.pac_switch, 'last_changed') %}
+    {% if is_state(input.pac_switch, 'off') %}
+      {{ now() }}
+    {% else %}
+      {{ state_attr(input.pac_switch, 'last_changed') }}
+    {% endif %}
 
 trigger:
-  - platform: numeric_state
-    entity_id: !input temp_sensor
-    id: start
-  - platform: numeric_state
-    entity_id: !input temp_sensor
-    id: stop
   - platform: state
-    entity_id: !input pac_switch
+    entity_id: !input start_trigger
     to: 'on'
-    for: !input max_runtime
-    id: timeout
+    id: demande_marche
+
+  - platform: state
+    entity_id: !input start_trigger
+    to: 'off'
+    id: demande_arret
 
 condition: []
 
 action:
   - choose:
+
+      # ⛔ DEMANDE DE MARCHE mais trop tôt : on ignore
       - conditions:
+          - condition: trigger
+            id: demande_marche
           - condition: template
             value_template: >
-              {{ is_cold and temp > (input.restart_threshold_cold | float) }}
+              {% set delta = (now() - state_attr(input.pac_switch, 'last_changed')).total_seconds() %}
+              {{ is_state(input.pac_switch, 'off') and delta < (input.min_off_duration.total_seconds()) }}
+        sequence:
+          - service: logbook.log
+            data:
+              name: PAC Yutaki
+              message: Marche ignorée : délai minimal non écoulé.
+              entity_id: !input pac_switch
+
+      # ✅ DEMANDE DE MARCHE autorisée
+      - conditions:
           - condition: trigger
-            id: start
+            id: demande_marche
+          - condition: template
+            value_template: >
+              {% set delta = (now() - state_attr(input.pac_switch, 'last_changed')).total_seconds() %}
+              {{ is_state(input.pac_switch, 'off') and delta >= (input.min_off_duration.total_seconds()) }}
         sequence:
           - service: switch.turn_on
             target:
               entity_id: !input pac_switch
 
+      # 🛑 DEMANDE D'ARRÊT
       - conditions:
-          - condition: template
-            value_template: >
-              {{ is_cold and (temp < (input.stop_threshold_cold | float) or trigger.id == 'timeout') }}
-        sequence:
-          - service: switch.turn_off
-            target:
-              entity_id: !input pac_switch
-
-      - conditions:
-          - condition: template
-            value_template: >
-              {{ is_hot and temp < (input.restart_threshold_hot | float) }}
           - condition: trigger
-            id: start
-        sequence:
-          - service: switch.turn_on
-            target:
-              entity_id: !input pac_switch
-
-      - conditions:
-          - condition: template
-            value_template: >
-              {{ is_hot and (temp > (input.stop_threshold_hot | float) or trigger.id == 'timeout') }}
+            id: demande_arret
         sequence:
           - service: switch.turn_off
             target:
