@@ -1,5 +1,5 @@
 blueprint:
-  name: Gestion PAC Yutaki (anti-cycles courts par temporisation)
+  name: "Gestion PAC Yutaki (anti-cycles courts par temporisation)"
   description: >
     Automatise le pilotage d'une pompe à chaleur Hitachi Yutaki via un relais (bornes 13/14),
     afin d'éviter les cycles courts. Lorsque la PAC est arrêtée, elle ne peut redémarrer qu'après
@@ -8,13 +8,13 @@ blueprint:
   input:
     pac_switch:
       name: Interrupteur PAC
-      description: Relais connecté aux bornes 13/14 (contact sec)
+      description: "Relais connecté aux bornes 13/14 (contact sec)"
       selector:
         entity:
           domain: switch
     start_trigger:
-      name: Déclencheur de mise en marche
-      description: Entité qui déclenche la demande de marche (ex: température ou booléen)
+      name: "Déclencheur de mise en marche"
+      description: "Entité qui déclenche la demande de marche (ex: température ou booléen)"
       selector:
         entity: {}
     min_off_duration:
