@@ -20,7 +20,7 @@ blueprint:
     min_off_duration:
       name: "Durée minimale d'arrêt"
       description: "Durée pendant laquelle la PAC doit rester éteinte avant de pouvoir redémarrer"
-      default: "00:20:00"
+      default: 00:20:00
       selector:
         duration: {}
 
