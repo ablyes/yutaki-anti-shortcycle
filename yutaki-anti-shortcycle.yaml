@@ -1,13 +1,13 @@
 blueprint:
   name: "Gestion PAC Yutaki (anti-cycles courts par temporisation)"
   description: >
-    Automatise le pilotage d'une pompe à chaleur Hitachi Yutaki via un relais (bornes 13/14),
+    "Automatise le pilotage d'une pompe à chaleur Hitachi Yutaki via un relais (bornes 13/14),
     afin d'éviter les cycles courts. Lorsque la PAC est arrêtée, elle ne peut redémarrer qu'après
-    une temporisation paramétrable.
+    une temporisation paramétrable."
   domain: automation
   input:
     pac_switch:
-      name: Interrupteur PAC
+      name: "Interrupteur PAC"
       description: "Relais connecté aux bornes 13/14 (contact sec)"
       selector:
         entity:
@@ -18,8 +18,8 @@ blueprint:
       selector:
         entity: {}
     min_off_duration:
-      name: Durée minimale d'arrêt
-      description: Durée pendant laquelle la PAC doit rester éteinte avant de pouvoir redémarrer
+      name: "Durée minimale d'arrêt"
+      description: "Durée pendant laquelle la PAC doit rester éteinte avant de pouvoir redémarrer"
       default: 00:20:00
       selector:
         duration:
@@ -30,23 +30,23 @@ mode: restart
 
 variables:
   last_off: >
-    {% set history = state_attr(input.pac_switch, 'last_changed') %}
+    "{% set history = state_attr(input.pac_switch, 'last_changed') %}
     {% if is_state(input.pac_switch, 'off') %}
       {{ now() }}
     {% else %}
       {{ state_attr(input.pac_switch, 'last_changed') }}
-    {% endif %}
+    {% endif %}"
 
 trigger:
   - platform: state
     entity_id: !input start_trigger
-    to: 'on'
-    id: demande_marche
+    to: "on"
+    id: "demande_marche"
 
   - platform: state
     entity_id: !input start_trigger
-    to: 'off'
-    id: demande_arret
+    to: "off"
+    id: "demande_arret"
 
 condition: []
 
@@ -56,7 +56,7 @@ action:
       # ⛔ DEMANDE DE MARCHE mais trop tôt : on ignore
       - conditions:
           - condition: trigger
-            id: demande_marche
+            id: "demande_marche"
           - condition: template
             value_template: >
               {% set delta = (now() - state_attr(input.pac_switch, 'last_changed')).total_seconds() %}
@@ -64,14 +64,14 @@ action:
         sequence:
           - service: logbook.log
             data:
-              name: PAC Yutaki
-              message: Marche ignorée : délai minimal non écoulé.
+              name: "PAC Yutaki"
+              message: "Marche ignorée : délai minimal non écoulé."
               entity_id: !input pac_switch
 
       # ✅ DEMANDE DE MARCHE autorisée
       - conditions:
           - condition: trigger
-            id: demande_marche
+            id: "demande_marche"
           - condition: template
             value_template: >
               {% set delta = (now() - state_attr(input.pac_switch, 'last_changed')).total_seconds() %}
@@ -84,7 +84,7 @@ action:
       # 🛑 DEMANDE D'ARRÊT
       - conditions:
           - condition: trigger
-            id: demande_arret
+            id: "demande_arret"
         sequence:
           - service: switch.turn_off
             target:
